@@ -1,8 +1,18 @@
-from fastapi import FastAPI
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import UploadFile
-from fastapi import File
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    UploadFile,
+    File,
+    Request
+)
+
+from fastapi.middleware.cors import CORSMiddleware
+
+from fastapi.security import (
+    OAuth2PasswordBearer,
+    OAuth2PasswordRequestForm
+)
 
 from sqlalchemy.orm import Session
 
@@ -15,25 +25,45 @@ from database import (
 )
 
 from auth import (
-    create_token,
+    hash_password,
+    verify_password,
+    create_access_token,
     verify_token
 )
 
 import shutil
-import random
 import os
+import random
 
-# =========================
-# CREATE DATABASE
-# =========================
-
+# CREATE TABLES
 models.Base.metadata.create_all(bind=engine)
 
+# FASTAPI APP
 app = FastAPI()
 
-# =========================
+# ==============================
+# CORS MIDDLEWARE
+# ==============================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ==============================
+# OAUTH2
+# ==============================
+
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="login"
+)
+
+# ==============================
 # DATABASE DEPENDENCY
-# =========================
+# ==============================
 
 def get_db():
 
@@ -45,31 +75,51 @@ def get_db():
     finally:
         db.close()
 
-# =========================
+# ==============================
+# REQUEST LOGGER MIDDLEWARE
+# ==============================
+
+@app.middleware("http")
+async def log_requests(
+    request: Request,
+    call_next
+):
+
+    print(f"Request URL: {request.url}")
+
+    response = await call_next(request)
+
+    print(
+        f"Response Status: {response.status_code}"
+    )
+
+    return response
+
+# ==============================
 # HOME API
-# =========================
+# ==============================
 
 @app.get("/")
-def home():
+async def home():
 
     return {
-        "message": "😂 Welcome to MemeVerse"
+        "message": "MemeVerse API Running 🚀"
     }
 
-# =========================
-# SIGNUP
-# =========================
+# ==============================
+# SIGNUP API
+# ==============================
 
 @app.post("/signup")
-def signup(
-    user: schemas.UserSignup,
+async def signup(
+    user: schemas.SignupSchema,
     db: Session = Depends(get_db)
 ):
 
     existing_user = db.query(
         models.User
     ).filter(
-        models.User.username == user.username
+        models.User.email == user.email
     ).first()
 
     if existing_user:
@@ -79,33 +129,40 @@ def signup(
             detail="User already exists"
         )
 
+    hashed_password = hash_password(
+        user.password
+    )
+
     new_user = models.User(
-        username=user.username,
-        password=user.password
+        name=user.name,
+        email=user.email,
+        password=hashed_password
     )
 
     db.add(new_user)
 
     db.commit()
 
+    db.refresh(new_user)
+
     return {
-        "message": "User created successfully"
+        "message": "User registered successfully"
     }
 
-# =========================
-# LOGIN
-# =========================
+# ==============================
+# LOGIN API
+# ==============================
 
 @app.post("/login")
-def login(
-    user: schemas.UserLogin,
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
 
     db_user = db.query(
         models.User
     ).filter(
-        models.User.username == user.username
+        models.User.email == form_data.username
     ).first()
 
     if not db_user:
@@ -115,35 +172,67 @@ def login(
             detail="User not found"
         )
 
-    if db_user.password != user.password:
+    if not verify_password(
+        form_data.password,
+        db_user.password
+    ):
 
         raise HTTPException(
             status_code=401,
-            detail="Invalid password"
+            detail="Incorrect password"
         )
 
-    token = create_token(
-        {
-            "username": user.username
-        }
+    token = create_access_token(
+        data={"sub": db_user.email}
     )
 
     return {
-        "access_token": token
+        "access_token": token,
+        "token_type": "bearer"
     }
 
-# =========================
-# CREATE JOKE
-# =========================
+# ==============================
+# PROTECTED PROFILE API
+# ==============================
 
-@app.post("/jokes")
-def create_joke(
-    joke: schemas.JokeCreate,
+@app.get("/profile")
+async def profile(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+
+    email = verify_token(token)
+
+    if email is None:
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )
+
+    user = db.query(
+        models.User
+    ).filter(
+        models.User.email == email
+    ).first()
+
+    return {
+        "name": user.name,
+        "email": user.email
+    }
+
+# ==============================
+# ADD JOKE API
+# ==============================
+
+@app.post("/add-joke")
+async def add_joke(
+    joke: schemas.JokeSchema,
     db: Session = Depends(get_db)
 ):
 
     new_joke = models.Joke(
-        joke=joke.joke
+        content=joke.content
     )
 
     db.add(new_joke)
@@ -152,31 +241,31 @@ def create_joke(
 
     db.refresh(new_joke)
 
-    return new_joke
+    return {
+        "message": "Joke added successfully 😂"
+    }
 
-# =========================
-# GET JOKES
-# =========================
+# ==============================
+# GET ALL JOKES API
+# ==============================
 
 @app.get("/jokes")
-def get_jokes(
-    skip: int = 0,
-    limit: int = 10,
+async def get_jokes(
     db: Session = Depends(get_db)
 ):
 
     jokes = db.query(
         models.Joke
-    ).offset(skip).limit(limit).all()
+    ).all()
 
     return jokes
 
-# =========================
-# RANDOM JOKE
-# =========================
+# ==============================
+# RANDOM JOKE API
+# ==============================
 
 @app.get("/random-joke")
-def random_joke(
+async def random_joke(
     db: Session = Depends(get_db)
 ):
 
@@ -186,101 +275,19 @@ def random_joke(
 
     if not jokes:
 
-        raise HTTPException(
-            status_code=404,
-            detail="No jokes found"
-        )
+        return {
+            "message": "No jokes available"
+        }
 
     joke = random.choice(jokes)
 
     return {
-        "joke": joke.joke
+        "joke": joke.content
     }
 
-# =========================
-# SEARCH JOKE
-# =========================
-
-@app.get("/search")
-def search_joke(
-    keyword: str,
-    db: Session = Depends(get_db)
-):
-
-    jokes = db.query(
-        models.Joke
-    ).filter(
-        models.Joke.joke.contains(keyword)
-    ).all()
-
-    return jokes
-
-# =========================
-# UPDATE JOKE
-# =========================
-
-@app.put("/jokes/{joke_id}")
-def update_joke(
-    joke_id: int,
-    updated_joke: schemas.JokeCreate,
-    db: Session = Depends(get_db)
-):
-
-    joke = db.query(
-        models.Joke
-    ).filter(
-        models.Joke.id == joke_id
-    ).first()
-
-    if not joke:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Joke not found"
-        )
-
-    joke.joke = updated_joke.joke
-
-    db.commit()
-
-    return {
-        "message": "Joke updated"
-    }
-
-# =========================
-# DELETE JOKE
-# =========================
-
-@app.delete("/jokes/{joke_id}")
-def delete_joke(
-    joke_id: int,
-    db: Session = Depends(get_db)
-):
-
-    joke = db.query(
-        models.Joke
-    ).filter(
-        models.Joke.id == joke_id
-    ).first()
-
-    if not joke:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Joke not found"
-        )
-
-    db.delete(joke)
-
-    db.commit()
-
-    return {
-        "message": "Joke deleted"
-    }
-
-# =========================
-# FILE UPLOAD
-# =========================
+# ==============================
+# FILE UPLOAD API
+# ==============================
 
 @app.post("/upload")
 async def upload_file(
@@ -302,65 +309,17 @@ async def upload_file(
         )
 
     return {
-        "message": "File uploaded",
-        "filename": file.filename
+        "filename": file.filename,
+        "message": "File uploaded successfully"
     }
 
-# =========================
+# ==============================
 # ASYNC API
-# =========================
+# ==============================
 
 @app.get("/async-api")
 async def async_api():
 
     return {
-        "message": "⚡ Async API Running"
-    }
-# =========================================
-# AI GENERATED JOKE API
-# =========================================
-import requests
-import os
-
-from dotenv import load_dotenv
-load_dotenv()
-
-OPENROUTER_API_KEY = os.getenv(
-    "OPENROUTER_API_KEY"
-)
-
-@app.get("/ai-joke")
-async def ai_joke():
-
-    url = "https://openrouter.ai/api/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "model": "openai/gpt-3.5-turbo",
-        "messages": [
-            {
-                "role": "user",
-                "content": (
-                    "Generate one short funny programming joke"
-                )
-            }
-        ]
-    }
-
-    response = requests.post(
-        url,
-        headers=headers,
-        json=payload
-    )
-
-    data = response.json()
-
-    joke = data["choices"][0]["message"]["content"]
-
-    return {
-        "ai_joke": joke
+        "message": "This is async API ⚡"
     }
