@@ -1,6 +1,5 @@
 from fastapi import (
     FastAPI,
-    Depends,
     HTTPException,
     UploadFile,
     File
@@ -8,42 +7,14 @@ from fastapi import (
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from sqlalchemy.orm import Session
-
-import os
-import shutil
 import random
-
-import models
-import schemas
-
-from database import (
-    engine,
-    SessionLocal
-)
-
-from auth import (
-    hash_password,
-    verify_password,
-    create_access_token,
-    verify_token
-)
-
-# ==========================================
-# CREATE DATABASE TABLES
-# ==========================================
-
-models.Base.metadata.create_all(bind=engine)
-
-# ==========================================
-# FASTAPI APP
-# ==========================================
+import os
 
 app = FastAPI()
 
-# ==========================================
+# =========================================
 # CORS
-# ==========================================
+# =========================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,259 +24,193 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==========================================
-# DATABASE DEPENDENCY
-# ==========================================
+# =========================================
+# STORAGE
+# =========================================
 
-def get_db():
+jokes_db = []
 
-    db = SessionLocal()
+UPLOAD_FOLDER = "uploads"
 
-    try:
+os.makedirs(
+    UPLOAD_FOLDER,
+    exist_ok=True
+)
 
-        yield db
-
-    finally:
-
-        db.close()
-
-# ==========================================
-# HOME API
-# ==========================================
+# =========================================
+# ROOT
+# =========================================
 
 @app.get("/")
-async def home():
+def home():
 
     return {
-        "message": "😂 MemeVerse Backend Running Successfully"
+        "message": "😂 MemeVerse Backend Running"
     }
 
-# ==========================================
-# SIGNUP API
-# ==========================================
+# =========================================
+# ADD JOKE
+# =========================================
 
-@app.post("/signup")
-async def signup(
-    user: schemas.UserSignup,
-    db: Session = Depends(get_db)
-):
+@app.post("/jokes")
+def add_joke(data: dict):
 
-    existing_user = db.query(
-        models.User
-    ).filter(
-        models.User.username == user.username
-    ).first()
+    joke_text = data.get("joke")
 
-    if existing_user:
+    if not joke_text:
 
         raise HTTPException(
             status_code=400,
-            detail="User already exists"
+            detail="Joke cannot be empty"
         )
 
-    hashed_password = hash_password(
-        user.password
-    )
-
-    new_user = models.User(
-        username=user.username,
-        password=hashed_password
-    )
-
-    db.add(new_user)
-
-    db.commit()
-
-    db.refresh(new_user)
-
-    return {
-        "message": "User registered successfully"
+    joke = {
+        "id": len(jokes_db) + 1,
+        "joke": joke_text
     }
 
-# ==========================================
-# LOGIN API
-# ==========================================
-
-@app.post("/login")
-async def login(
-    user: schemas.UserLogin,
-    db: Session = Depends(get_db)
-):
-
-    db_user = db.query(
-        models.User
-    ).filter(
-        models.User.username == user.username
-    ).first()
-
-    if not db_user:
-
-        raise HTTPException(
-            status_code=404,
-            detail="User not found"
-        )
-
-    if not verify_password(
-        user.password,
-        db_user.password
-    ):
-
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect password"
-        )
-
-    token = create_access_token(
-        data={"sub": db_user.username}
-    )
+    jokes_db.append(joke)
 
     return {
-        "access_token": token,
-        "token_type": "bearer"
+        "message": "Joke Added Successfully",
+        "data": joke
     }
 
-# ==========================================
-# PROTECTED PROFILE API
-# ==========================================
-
-@app.get("/profile")
-async def profile(token: str):
-
-    username = verify_token(token)
-
-    if username is None:
-
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token"
-        )
-
-    return {
-        "username": username,
-        "message": "Protected profile accessed"
-    }
-
-# ==========================================
-# POST JOKE API
-# ==========================================
-
-@app.post("/add-joke")
-async def add_joke(
-    joke: schemas.JokeCreate,
-    db: Session = Depends(get_db)
-):
-
-    new_joke = models.Joke(
-        joke=joke.joke
-    )
-
-    db.add(new_joke)
-
-    db.commit()
-
-    db.refresh(new_joke)
-
-    return {
-        "message": "Joke added successfully"
-    }
-
-# ==========================================
-# GET ALL JOKES API
-# ==========================================
+# =========================================
+# GET ALL JOKES
+# =========================================
 
 @app.get("/get-jokes")
-async def get_jokes(
-    db: Session = Depends(get_db)
-):
+def get_jokes():
 
-    jokes = db.query(
-        models.Joke
-    ).all()
+    return jokes_db
 
-    return jokes
+# =========================================
+# RANDOM JOKE
+# =========================================
 
-# ==========================================
-# RANDOM AI STYLE JOKE API
-# ==========================================
+@app.get("/random-joke")
+def random_joke():
 
-@app.get("/generate-joke")
-async def generate_joke():
+    if len(jokes_db) == 0:
 
-    jokes = [
+        return {
+            "joke": "No jokes available 😂"
+        }
 
-        "Why don’t programmers like nature? It has too many bugs 😂",
+    joke = random.choice(jokes_db)
 
-        "Why did the computer go to therapy? It had too many bytes of trauma 🤖",
+    return joke
 
-        "Why was the Python developer calm? Because he handled exceptions properly 😎",
+# =========================================
+# AI JOKE GENERATOR
+# =========================================
 
-        "Why do Java developers wear glasses? Because they don’t C# 🤣",
+@app.get("/ai-joke")
+def ai_joke():
 
-        "Why was the AI model so confident? Because it had deep learning 😁",
+    ai_jokes = [
 
-        "Why did the database break up? Too many relationships 💔",
+        "Why don’t programmers like nature? Too many bugs 😂",
 
-        "Why did the backend developer cry? Frontend changed the API again 😭"
+        "Why did Python go to therapy? Too many indentation issues 😂",
 
+        "Why do Java developers wear glasses? Because they don’t C# 😂",
+
+        "Why was the computer cold? It forgot to close Windows 😂",
+
+        "Why did the AI break up? Lack of emotional bandwidth 😂"
     ]
 
     return {
-        "joke": random.choice(jokes)
+        "ai_joke": random.choice(ai_jokes)
     }
 
-# ==========================================
-# FILE UPLOAD API
-# ==========================================
+# =========================================
+# SEARCH JOKE
+# =========================================
+
+@app.get("/search")
+def search_joke(keyword: str):
+
+    results = []
+
+    for joke in jokes_db:
+
+        if keyword.lower() in joke["joke"].lower():
+
+            results.append(joke)
+
+    return results
+
+# =========================================
+# UPDATE JOKE
+# =========================================
+
+@app.put("/jokes/{joke_id}")
+def update_joke(
+    joke_id: int,
+    data: dict
+):
+
+    for joke in jokes_db:
+
+        if joke["id"] == joke_id:
+
+            joke["joke"] = data.get(
+                "joke",
+                joke["joke"]
+            )
+
+            return {
+                "message": "Joke Updated Successfully"
+            }
+
+    raise HTTPException(
+        status_code=404,
+        detail="Joke not found"
+    )
+
+# =========================================
+# DELETE JOKE
+# =========================================
+
+@app.delete("/jokes/{joke_id}")
+def delete_joke(joke_id: int):
+
+    for joke in jokes_db:
+
+        if joke["id"] == joke_id:
+
+            jokes_db.remove(joke)
+
+            return {
+                "message": "Joke Deleted Successfully"
+            }
+
+    raise HTTPException(
+        status_code=404,
+        detail="Joke not found"
+    )
+
+# =========================================
+# FILE UPLOAD
+# =========================================
 
 @app.post("/upload")
 async def upload_file(
     file: UploadFile = File(...)
 ):
 
-    os.makedirs(
-        "uploads",
-        exist_ok=True
+    file_path = os.path.join(
+        UPLOAD_FOLDER,
+        file.filename
     )
 
-    file_path = f"uploads/{file.filename}"
+    with open(file_path, "wb") as f:
 
-    with open(file_path, "wb") as buffer:
-
-        shutil.copyfileobj(
-            file.file,
-            buffer
-        )
+        f.write(await file.read())
 
     return {
-        "filename": file.filename,
-        "message": "File uploaded successfully"
-    }
-
-# ==========================================
-# VIEW UPLOADED FILES API
-# ==========================================
-
-@app.get("/files")
-async def get_files():
-
-    os.makedirs(
-        "uploads",
-        exist_ok=True
-    )
-
-    files = os.listdir("uploads")
-
-    return {
-        "files": files
-    }
-
-# ==========================================
-# ASYNC API
-# ==========================================
-
-@app.get("/async-api")
-async def async_api():
-
-    return {
-        "message": "⚡ Async API is working successfully"
+        "filename": file.filename
     }
