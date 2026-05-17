@@ -191,9 +191,9 @@ if menu == "😂 Get Jokes":
 
     try:
 
-        response = requests.get(
-            f"{BACKEND_URL}/get-jokes"
-        )
+       response = requests.get(
+    f"{BASE_URL}/jokes"
+)
 
         jokes = response.json()
 
