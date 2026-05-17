@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from passlib.context import CryptContext
 
 # SECRET KEY
-SECRET_KEY = "supersecretkey"
+SECRET_KEY = "1a114d4ef444dffd4ca39fc87576e2d5989c4a52a16b76de5ac60d5073317c67"
 
 # ALGORITHM
 ALGORITHM = "HS256"
