@@ -1,20 +1,58 @@
-from jose import jwt
-from jose import JWTError
+from jose import jwt, JWTError
+from datetime import datetime, timedelta
+from passlib.context import CryptContext
 
-SECRET_KEY = "MEMEVERSE_SECRET"
+# SECRET KEY
+SECRET_KEY = "supersecretkey"
 
+# ALGORITHM
 ALGORITHM = "HS256"
 
-def create_token(data: dict):
+# TOKEN EXPIRY
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-    token = jwt.encode(
-        data,
+# PASSWORD HASHING
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
+
+# HASH PASSWORD
+def hash_password(password: str):
+
+    return pwd_context.hash(password)
+
+# VERIFY PASSWORD
+def verify_password(
+    plain_password,
+    hashed_password
+):
+
+    return pwd_context.verify(
+        plain_password,
+        hashed_password
+    )
+
+# CREATE ACCESS TOKEN
+def create_access_token(data: dict):
+
+    to_encode = data.copy()
+
+    expire = datetime.utcnow() + timedelta(
+        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+
+    to_encode.update({"exp": expire})
+
+    encoded_jwt = jwt.encode(
+        to_encode,
         SECRET_KEY,
         algorithm=ALGORITHM
     )
 
-    return token
+    return encoded_jwt
 
+# VERIFY TOKEN
 def verify_token(token: str):
 
     try:
@@ -25,7 +63,9 @@ def verify_token(token: str):
             algorithms=[ALGORITHM]
         )
 
-        return payload
+        email = payload.get("sub")
+
+        return email
 
     except JWTError:
 
