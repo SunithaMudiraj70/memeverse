@@ -178,12 +178,12 @@ elif menu == "➕ Add Joke":
 # GET ALL JOKES
 # =========================================
 
-if menu == "😂 Get Jokes":
+elif menu == "😂 Get Jokes":
 
     st.markdown(
         """
-        <div class='title'>
-        😂 All Posted Jokes
+        <div class='card'>
+        <h1>😂 All Posted Jokes</h1>
         </div>
         """,
         unsafe_allow_html=True
@@ -191,9 +191,9 @@ if menu == "😂 Get Jokes":
 
     try:
 
-       response = requests.get(
-    f"{BASE_URL}/jokes"
-)
+        response = requests.get(
+            f"{BASE_URL}/jokes"
+        )
 
         jokes = response.json()
 
@@ -209,7 +209,10 @@ if menu == "😂 Get Jokes":
                 f"{len(jokes)} jokes found 🎉"
             )
 
-            for index, joke in enumerate(jokes, start=1):
+            for index, joke in enumerate(
+                jokes,
+                start=1
+            ):
 
                 joke_text = joke.get(
                     "joke",
@@ -225,9 +228,11 @@ if menu == "😂 Get Jokes":
                     f"""
                     <div class='card'>
                     <h3>🤣 Joke #{joke_id}</h3>
+
                     <p style='font-size:22px'>
                     {joke_text}
                     </p>
+
                     </div>
                     """,
                     unsafe_allow_html=True
