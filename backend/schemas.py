@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 # =========================
 # USER SCHEMAS
@@ -6,13 +6,16 @@ from pydantic import BaseModel
 
 class UserSignup(BaseModel):
 
-    username: str
+    name: str
+    email: EmailStr
     password: str
+
 
 class UserLogin(BaseModel):
 
-    username: str
+    email: EmailStr
     password: str
+
 
 # =========================
 # JOKE SCHEMAS
@@ -21,6 +24,7 @@ class UserLogin(BaseModel):
 class JokeCreate(BaseModel):
 
     joke: str
+
 
 class JokeResponse(BaseModel):
 
