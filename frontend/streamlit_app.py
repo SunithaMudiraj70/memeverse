@@ -96,7 +96,7 @@ st.markdown(
 )
 
 # =========================================
-# SIDEBAR MENU
+# SIDEBAR
 # =========================================
 
 menu = st.sidebar.selectbox(
@@ -126,16 +126,8 @@ if menu == "🏠 Home":
         <h1>😂 Welcome to MemeVerse</h1>
 
         <p>
-        A full-stack FastAPI + Streamlit humour platform.
+        A funny AI powered joke platform built using FastAPI + Streamlit 🚀
         </p>
-
-        <ul>
-            <li>Create jokes</li>
-            <li>Generate AI jokes</li>
-            <li>Search jokes</li>
-            <li>Upload memes/images</li>
-            <li>Update/Delete jokes</li>
-        </ul>
 
         </div>
         """,
@@ -148,20 +140,13 @@ if menu == "🏠 Home":
 
 elif menu == "➕ Add Joke":
 
-    st.markdown(
-        """
-        <div class='card'>
-        <h1>➕ Add Joke</h1>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.subheader("➕ Add Your Joke")
 
     joke = st.text_area(
-        "Enter your joke"
+        "Write your joke 😂"
     )
 
-    if st.button("Add Joke 😂"):
+    if st.button("Add Joke"):
 
         response = requests.post(
             f"{BASE_URL}/jokes",
@@ -170,46 +155,39 @@ elif menu == "➕ Add Joke":
             }
         )
 
-        st.success(
-            "Joke Added Successfully 🎉"
-        )
+        if response.status_code == 200:
+
+            st.success(
+                "Joke Added Successfully 🎉"
+            )
+
+        else:
+
+            st.error(
+                "Failed to add joke"
+            )
 
 # =========================================
-# GET ALL JOKES
+# GET JOKES
 # =========================================
 
 elif menu == "😂 Get Jokes":
 
-    st.markdown(
-        """
-        <div class='card'>
-        <h1>😂 All Posted Jokes</h1>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.subheader("😂 All Posted Jokes")
 
     try:
 
         response = requests.get(
-            f"{BASE_URL}/jokes"
+            f"{BASE_URL}/get-jokes"
         )
 
         jokes = response.json()
 
-        # =========================
-        # NO JOKES
-        # =========================
-
         if len(jokes) == 0:
 
             st.warning(
-                "No jokes available yet 😢"
+                "No jokes available 😢"
             )
-
-        # =========================
-        # SHOW JOKES
-        # =========================
 
         else:
 
@@ -217,85 +195,53 @@ elif menu == "😂 Get Jokes":
                 f"{len(jokes)} jokes found 🎉"
             )
 
-            for index, joke in enumerate(
-                jokes,
-                start=1
-            ):
+            for joke in jokes:
 
-                # -------------------------
-                # IF BACKEND RETURNS STRING
-                # -------------------------
+                if isinstance(joke, dict):
 
-                if isinstance(joke, str):
-
-                    joke_text = joke
-                    joke_id = index
-
-                # -------------------------
-                # IF BACKEND RETURNS OBJECT
-                # -------------------------
-
-                elif isinstance(joke, dict):
+                    joke_id = joke.get("id", "N/A")
 
                     joke_text = joke.get(
                         "joke",
-                        "No joke text found"
+                        "No joke found"
                     )
 
-                    joke_id = joke.get(
-                        "id",
-                        index
+                    st.markdown(
+                        f"""
+                        <div class='card'>
+                        <h3>🤣 Joke #{joke_id}</h3>
+                        <p style='font-size:22px'>
+                        {joke_text}
+                        </p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
                     )
-
-                # -------------------------
-                # UNKNOWN FORMAT
-                # -------------------------
 
                 else:
 
-                    joke_text = str(joke)
-                    joke_id = index
-
-                # -------------------------
-                # DISPLAY CARD
-                # -------------------------
-
-                st.markdown(
-                    f"""
-                    <div class='card'>
-
-                    <h3>
-                    🤣 Joke #{joke_id}
-                    </h3>
-
-                    <p style='font-size:22px'>
-                    {joke_text}
-                    </p>
-
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                    st.markdown(
+                        f"""
+                        <div class='card'>
+                        <p>{joke}</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
     except Exception as e:
 
         st.error(
             f"Error loading jokes: {e}"
         )
+
 # =========================================
 # RANDOM JOKE
 # =========================================
 
 elif menu == "🎲 Random Joke":
 
-    st.markdown(
-        """
-        <div class='card'>
-        <h1>🎲 Random Joke</h1>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.subheader("🎲 Random Joke")
 
     if st.button("Generate Random Joke 😂"):
 
@@ -305,76 +251,48 @@ elif menu == "🎲 Random Joke":
 
         data = response.json()
 
-        if "joke" in data:
-
-            st.markdown(
-                f"""
-                <div class='card'>
-                <h2>🤣 Random Joke</h2>
-                <p style='font-size:24px'>
-                {data['joke']}
-                </p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        else:
-
-            st.error(
-                "No jokes found"
-            )
+        st.markdown(
+            f"""
+            <div class='card'>
+            <h2>🤣 Random Joke</h2>
+            <p style='font-size:24px'>
+            {data.get('joke')}
+            </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 # =========================================
-# AI JOKE GENERATOR
+# AI JOKE
 # =========================================
 
 elif menu == "🤖 AI Joke Generator":
 
-    st.markdown(
-        """
-        <div class='card'>
-        <h1>🤖 AI Joke Generator</h1>
-        <p>Generate jokes using AI 😂</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.subheader("🤖 AI Joke Generator")
 
     if st.button("Generate AI Joke 🚀"):
 
-        with st.spinner(
-            "AI is thinking 😂"
-        ):
+        response = requests.get(
+            f"{BASE_URL}/ai-joke"
+        )
 
-            try:
+        data = response.json()
 
-                response = requests.get(
-                    f"{BASE_URL}/ai-joke"
-                )
-
-                data = response.json()
-
-                st.markdown(
-                    f"""
-                    <div class='card'>
-                    <h2>🤣 AI Generated Joke</h2>
-                    <p style='font-size:24px'>
-                    {data['ai_joke']}
-                    </p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-            except Exception as e:
-
-                st.error(
-                    f"Error: {e}"
-                )
+        st.markdown(
+            f"""
+            <div class='card'>
+            <h2>🤣 AI Joke</h2>
+            <p style='font-size:24px'>
+            {data.get('ai_joke')}
+            </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 # =========================================
-# SEARCH JOKE
+# SEARCH
 # =========================================
 
 elif menu == "🔍 Search Joke":
@@ -383,7 +301,7 @@ elif menu == "🔍 Search Joke":
         "Enter keyword"
     )
 
-    if st.button("Search 🔍"):
+    if st.button("Search"):
 
         response = requests.get(
             f"{BASE_URL}/search?keyword={keyword}"
@@ -398,9 +316,8 @@ elif menu == "🔍 Search Joke":
                 st.markdown(
                     f"""
                     <div class='card'>
-                    <h3>🤣 Search Result</h3>
-                    <p style='font-size:20px'>
-                    {joke['joke']}
+                    <p style='font-size:22px'>
+                    {joke.get('joke')}
                     </p>
                     </div>
                     """,
@@ -414,13 +331,13 @@ elif menu == "🔍 Search Joke":
             )
 
 # =========================================
-# UPDATE JOKE
+# UPDATE
 # =========================================
 
 elif menu == "✏️ Update Joke":
 
     joke_id = st.number_input(
-        "Enter Joke ID",
+        "Joke ID",
         min_value=1
     )
 
@@ -428,7 +345,7 @@ elif menu == "✏️ Update Joke":
         "Updated Joke"
     )
 
-    if st.button("Update Joke ✏️"):
+    if st.button("Update Joke"):
 
         response = requests.put(
             f"{BASE_URL}/jokes/{joke_id}",
@@ -442,17 +359,17 @@ elif menu == "✏️ Update Joke":
         )
 
 # =========================================
-# DELETE JOKE
+# DELETE
 # =========================================
 
 elif menu == "🗑️ Delete Joke":
 
     joke_id = st.number_input(
-        "Enter Joke ID to Delete",
+        "Joke ID",
         min_value=1
     )
 
-    if st.button("Delete Joke 🗑️"):
+    if st.button("Delete Joke"):
 
         response = requests.delete(
             f"{BASE_URL}/jokes/{joke_id}"
@@ -463,25 +380,15 @@ elif menu == "🗑️ Delete Joke":
         )
 
 # =========================================
-# FILE UPLOAD + VIEW FILES
+# FILE UPLOAD
 # =========================================
 
 elif menu == "📤 Upload File":
 
-    st.markdown(
-        """
-        <div class='card'>
-        <h1>📤 Upload Meme/Image</h1>
-        <p>
-        Upload funny memes and instantly preview them 😂
-        </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.subheader("📤 Upload Meme/Image")
 
     uploaded_file = st.file_uploader(
-        "Choose an image",
+        "Choose Image",
         type=["png", "jpg", "jpeg"]
     )
 
@@ -489,78 +396,32 @@ elif menu == "📤 Upload File":
 
         st.image(
             uploaded_file,
-            caption="Selected Image Preview",
             use_container_width=True
         )
 
         if st.button("Upload 🚀"):
 
-            try:
-
-                files = {
-                    "file": (
-                        uploaded_file.name,
-                        uploaded_file,
-                        uploaded_file.type
-                    )
-                }
-
-                response = requests.post(
-                    f"{BASE_URL}/upload",
-                    files=files
+            files = {
+                "file": (
+                    uploaded_file.name,
+                    uploaded_file,
+                    uploaded_file.type
                 )
+            }
 
-                data = response.json()
+            response = requests.post(
+                f"{BASE_URL}/upload",
+                files=files
+            )
+
+            if response.status_code == 200:
 
                 st.success(
-                    "✅ File Uploaded Successfully"
+                    "File Uploaded Successfully 🎉"
                 )
 
-                st.write(
-                    "Uploaded File:",
-                    data["filename"]
-                )
-
-                if "uploaded_images" not in st.session_state:
-
-                    st.session_state.uploaded_images = []
-
-                st.session_state.uploaded_images.append(
-                    uploaded_file
-                )
-
-            except Exception as e:
+            else:
 
                 st.error(
-                    f"Upload Failed: {e}"
+                    "Upload failed"
                 )
-
-    st.markdown("---")
-
-    st.subheader("🖼️ Uploaded Meme Gallery")
-
-    if (
-        "uploaded_images" in st.session_state
-        and len(st.session_state.uploaded_images) > 0
-    ):
-
-        cols = st.columns(3)
-
-        for index, image in enumerate(
-            st.session_state.uploaded_images
-        ):
-
-            with cols[index % 3]:
-
-                st.image(
-                    image,
-                    use_container_width=True
-                )
-
-                st.caption(image.name)
-
-    else:
-
-        st.info(
-            "No uploaded images yet"
-        )
