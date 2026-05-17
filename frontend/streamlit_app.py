@@ -178,51 +178,66 @@ elif menu == "➕ Add Joke":
 # GET ALL JOKES
 # =========================================
 
-elif menu == "😂 Get Jokes":
+if menu == "😂 Get Jokes":
 
     st.markdown(
         """
-        <div class='card'>
-        <h1>😂 All Posted Jokes</h1>
+        <div class='title'>
+        😂 All Posted Jokes
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    if st.button("Load All Jokes 😂"):
+    try:
 
         response = requests.get(
-            f"{BASE_URL}/jokes"
+            f"{BACKEND_URL}/get-jokes"
         )
 
         jokes = response.json()
 
-        if len(jokes) > 0:
+        if len(jokes) == 0:
+
+            st.warning(
+                "No jokes available yet 😢"
+            )
+
+        else:
 
             st.success(
                 f"{len(jokes)} jokes found 🎉"
             )
 
-            for joke in jokes:
+            for index, joke in enumerate(jokes, start=1):
+
+                joke_text = joke.get(
+                    "joke",
+                    "No joke text found"
+                )
+
+                joke_id = joke.get(
+                    "id",
+                    index
+                )
 
                 st.markdown(
                     f"""
                     <div class='card'>
-                    <h3>🤣 Joke ID: {joke['id']}</h3>
+                    <h3>🤣 Joke #{joke_id}</h3>
                     <p style='font-size:22px'>
-                    {joke['joke']}
+                    {joke_text}
                     </p>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
 
-        else:
+    except Exception as e:
 
-            st.warning(
-                "No jokes available"
-            )
-
+        st.error(
+            f"Error loading jokes: {e}"
+        )
 # =========================================
 # RANDOM JOKE
 # =========================================
