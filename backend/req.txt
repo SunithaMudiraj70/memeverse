@@ -5,4 +5,4 @@ pydantic
 python-jose
 python-multipart
 passlib[bcrypt]
-bcrypt
+email-validator
