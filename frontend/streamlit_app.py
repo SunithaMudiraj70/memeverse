@@ -197,11 +197,19 @@ elif menu == "😂 Get Jokes":
 
         jokes = response.json()
 
+        # =========================
+        # NO JOKES
+        # =========================
+
         if len(jokes) == 0:
 
             st.warning(
                 "No jokes available yet 😢"
             )
+
+        # =========================
+        # SHOW JOKES
+        # =========================
 
         else:
 
@@ -214,20 +222,51 @@ elif menu == "😂 Get Jokes":
                 start=1
             ):
 
-                joke_text = joke.get(
-                    "joke",
-                    "No joke text found"
-                )
+                # -------------------------
+                # IF BACKEND RETURNS STRING
+                # -------------------------
 
-                joke_id = joke.get(
-                    "id",
-                    index
-                )
+                if isinstance(joke, str):
+
+                    joke_text = joke
+                    joke_id = index
+
+                # -------------------------
+                # IF BACKEND RETURNS OBJECT
+                # -------------------------
+
+                elif isinstance(joke, dict):
+
+                    joke_text = joke.get(
+                        "joke",
+                        "No joke text found"
+                    )
+
+                    joke_id = joke.get(
+                        "id",
+                        index
+                    )
+
+                # -------------------------
+                # UNKNOWN FORMAT
+                # -------------------------
+
+                else:
+
+                    joke_text = str(joke)
+                    joke_id = index
+
+                # -------------------------
+                # DISPLAY CARD
+                # -------------------------
 
                 st.markdown(
                     f"""
                     <div class='card'>
-                    <h3>🤣 Joke #{joke_id}</h3>
+
+                    <h3>
+                    🤣 Joke #{joke_id}
+                    </h3>
 
                     <p style='font-size:22px'>
                     {joke_text}
