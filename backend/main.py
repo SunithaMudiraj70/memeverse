@@ -3,18 +3,16 @@ from fastapi import (
     Depends,
     HTTPException,
     UploadFile,
-    File,
-    Request
+    File
 )
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from fastapi.security import (
-    OAuth2PasswordBearer,
-    OAuth2PasswordRequestForm
-)
-
 from sqlalchemy.orm import Session
+
+import os
+import shutil
+import random
 
 import models
 import schemas
@@ -31,19 +29,21 @@ from auth import (
     verify_token
 )
 
-import shutil
-import os
-import random
+# ==========================================
+# CREATE DATABASE TABLES
+# ==========================================
 
-# CREATE TABLES
 models.Base.metadata.create_all(bind=engine)
 
+# ==========================================
 # FASTAPI APP
+# ==========================================
+
 app = FastAPI()
 
-# ==============================
-# CORS MIDDLEWARE
-# ==============================
+# ==========================================
+# CORS
+# ==========================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,73 +53,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==============================
-# OAUTH2
-# ==============================
-
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="login"
-)
-
-# ==============================
+# ==========================================
 # DATABASE DEPENDENCY
-# ==============================
+# ==========================================
 
 def get_db():
 
     db = SessionLocal()
 
     try:
+
         yield db
 
     finally:
+
         db.close()
 
-# ==============================
-# REQUEST LOGGER MIDDLEWARE
-# ==============================
-
-@app.middleware("http")
-async def log_requests(
-    request: Request,
-    call_next
-):
-
-    print(f"Request URL: {request.url}")
-
-    response = await call_next(request)
-
-    print(
-        f"Response Status: {response.status_code}"
-    )
-
-    return response
-
-# ==============================
+# ==========================================
 # HOME API
-# ==============================
+# ==========================================
 
 @app.get("/")
 async def home():
 
     return {
-        "message": "MemeVerse API Running 🚀"
+        "message": "😂 MemeVerse Backend Running Successfully"
     }
 
-# ==============================
+# ==========================================
 # SIGNUP API
-# ==============================
+# ==========================================
 
 @app.post("/signup")
 async def signup(
-    user: schemas.SignupSchema,
+    user: schemas.UserSignup,
     db: Session = Depends(get_db)
 ):
 
     existing_user = db.query(
         models.User
     ).filter(
-        models.User.email == user.email
+        models.User.username == user.username
     ).first()
 
     if existing_user:
@@ -134,8 +108,7 @@ async def signup(
     )
 
     new_user = models.User(
-        name=user.name,
-        email=user.email,
+        username=user.username,
         password=hashed_password
     )
 
@@ -149,20 +122,20 @@ async def signup(
         "message": "User registered successfully"
     }
 
-# ==============================
+# ==========================================
 # LOGIN API
-# ==============================
+# ==========================================
 
 @app.post("/login")
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    user: schemas.UserLogin,
     db: Session = Depends(get_db)
 ):
 
     db_user = db.query(
         models.User
     ).filter(
-        models.User.email == form_data.username
+        models.User.username == user.username
     ).first()
 
     if not db_user:
@@ -173,7 +146,7 @@ async def login(
         )
 
     if not verify_password(
-        form_data.password,
+        user.password,
         db_user.password
     ):
 
@@ -183,7 +156,7 @@ async def login(
         )
 
     token = create_access_token(
-        data={"sub": db_user.email}
+        data={"sub": db_user.username}
     )
 
     return {
@@ -191,48 +164,39 @@ async def login(
         "token_type": "bearer"
     }
 
-# ==============================
+# ==========================================
 # PROTECTED PROFILE API
-# ==============================
+# ==========================================
 
 @app.get("/profile")
-async def profile(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
+async def profile(token: str):
 
-    email = verify_token(token)
+    username = verify_token(token)
 
-    if email is None:
+    if username is None:
 
         raise HTTPException(
             status_code=401,
             detail="Invalid token"
         )
 
-    user = db.query(
-        models.User
-    ).filter(
-        models.User.email == email
-    ).first()
-
     return {
-        "name": user.name,
-        "email": user.email
+        "username": username,
+        "message": "Protected profile accessed"
     }
 
-# ==============================
-# ADD JOKE API
-# ==============================
+# ==========================================
+# POST JOKE API
+# ==========================================
 
 @app.post("/add-joke")
 async def add_joke(
-    joke: schemas.JokeSchema,
+    joke: schemas.JokeCreate,
     db: Session = Depends(get_db)
 ):
 
     new_joke = models.Joke(
-        content=joke.content
+        joke=joke.joke
     )
 
     db.add(new_joke)
@@ -242,14 +206,14 @@ async def add_joke(
     db.refresh(new_joke)
 
     return {
-        "message": "Joke added successfully 😂"
+        "message": "Joke added successfully"
     }
 
-# ==============================
+# ==========================================
 # GET ALL JOKES API
-# ==============================
+# ==========================================
 
-@app.get("/jokes")
+@app.get("/get-jokes")
 async def get_jokes(
     db: Session = Depends(get_db)
 ):
@@ -260,34 +224,38 @@ async def get_jokes(
 
     return jokes
 
-# ==============================
-# RANDOM JOKE API
-# ==============================
+# ==========================================
+# RANDOM AI STYLE JOKE API
+# ==========================================
 
-@app.get("/random-joke")
-async def random_joke(
-    db: Session = Depends(get_db)
-):
+@app.get("/generate-joke")
+async def generate_joke():
 
-    jokes = db.query(
-        models.Joke
-    ).all()
+    jokes = [
 
-    if not jokes:
+        "Why don’t programmers like nature? It has too many bugs 😂",
 
-        return {
-            "message": "No jokes available"
-        }
+        "Why did the computer go to therapy? It had too many bytes of trauma 🤖",
 
-    joke = random.choice(jokes)
+        "Why was the Python developer calm? Because he handled exceptions properly 😎",
+
+        "Why do Java developers wear glasses? Because they don’t C# 🤣",
+
+        "Why was the AI model so confident? Because it had deep learning 😁",
+
+        "Why did the database break up? Too many relationships 💔",
+
+        "Why did the backend developer cry? Frontend changed the API again 😭"
+
+    ]
 
     return {
-        "joke": joke.content
+        "joke": random.choice(jokes)
     }
 
-# ==============================
+# ==========================================
 # FILE UPLOAD API
-# ==============================
+# ==========================================
 
 @app.post("/upload")
 async def upload_file(
@@ -313,13 +281,31 @@ async def upload_file(
         "message": "File uploaded successfully"
     }
 
-# ==============================
+# ==========================================
+# VIEW UPLOADED FILES API
+# ==========================================
+
+@app.get("/files")
+async def get_files():
+
+    os.makedirs(
+        "uploads",
+        exist_ok=True
+    )
+
+    files = os.listdir("uploads")
+
+    return {
+        "files": files
+    }
+
+# ==========================================
 # ASYNC API
-# ==============================
+# ==========================================
 
 @app.get("/async-api")
 async def async_api():
 
     return {
-        "message": "This is async API ⚡"
+        "message": "⚡ Async API is working successfully"
     }
